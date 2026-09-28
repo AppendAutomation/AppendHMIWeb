@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'">
+	<title>Append HMI Web</title>
+	<link rel="stylesheet" href="launcher.css">
+</head>
+<body>
+	<header>
+		<img src="icon.svg" alt="" width="44" height="44">
+		<div class="heading">
+			<h1>Append HMI Web</h1>
+			<p>Serves HMI applications made with Append HMI Studio to web browsers.</p>
+		</div>
+		<span id="version" class="version"></span>
+	</header>
+
+	<main>
+		<section id="running-section" class="running-section" hidden>
+			<h2>Running</h2>
+			<div id="running"></div>
+		</section>
+
+		<section>
+			<h2>HMI application</h2>
+			<div class="picker">
+				<div id="file" class="file empty">No application chosen</div>
+				<button id="browse" data-field="browse">Browse…</button>
+			</div>
+
+			<div id="details" class="details" hidden>
+				<div id="name" class="name"></div>
+				<div id="summary" class="summary"></div>
+				<div id="error" class="error" hidden></div>
+			</div>
+
+			<div class="options">
+				<label class="option">
+					<span>Port</span>
+					<input id="port" type="number" min="1" max="65535" step="1" data-field="port">
+				</label>
+				<label class="option">
+					<span>View in the browser</span>
+					<select id="view" data-field="view">
+						<option value="fit">Fit to window</option>
+						<option value="fill">Maximize (fill the window)</option>
+						<option value="original">Original size (scroll bars)</option>
+					</select>
+				</label>
+			</div>
+
+			<label class="check">
+				<input id="remote" type="checkbox" data-field="remote" checked>
+				<span>Allow other computers to connect</span>
+			</label>
+
+			<div class="actions">
+				<button id="start" class="primary" data-field="start" disabled>Start web server</button>
+				<button id="desktop" data-field="desktop" disabled>Create desktop shortcut</button>
+				<button id="menu" data-field="menu" disabled>Add to Start menu</button>
+			</div>
+		</section>
+
+		<section class="recent-section">
+			<h2>Recent</h2>
+			<ul id="recent" class="recent"></ul>
+			<p id="no-recent" class="hint" hidden>Applications you serve appear here.</p>
+		</section>
+	</main>
+
+	<footer>
+		<div id="status" class="status" role="status"></div>
+	</footer>
+
+	<script src="launcher.js"></script>
+</body>
+</html>

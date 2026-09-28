@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Append HMI Web</title>
+  <defs>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4a57"/>
+      <stop offset="1" stop-color="#1f2a33"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a9ee6"/>
+      <stop offset="1" stop-color="#1265a8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.35" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- panel bezel -->
+  <rect x="48" y="48" width="928" height="928" rx="168" fill="url(#bezel)"/>
+  <rect x="48" y="48" width="928" height="928" rx="168" fill="none" stroke="#56687a" stroke-width="10"/>
+  <!-- screen -->
+  <rect x="128" y="128" width="768" height="560" rx="56" fill="url(#screen)"/>
+  <rect x="128" y="128" width="768" height="560" rx="56" fill="url(#glow)"/>
+  <!-- globe -->
+  <g fill="none" stroke="#ffffff" stroke-width="30" stroke-linecap="round">
+    <circle cx="512" cy="408" r="190"/>
+    <ellipse cx="512" cy="408" rx="82" ry="190"/>
+    <line x1="322" y1="408" x2="702" y2="408"/>
+    <path d="M 350 308 Q 512 350 674 308"/>
+    <path d="M 350 508 Q 512 466 674 508"/>
+  </g>
+  <!-- indicator lights -->
+  <circle cx="352" cy="832" r="54" fill="#2ecc71"/>
+  <circle cx="512" cy="832" r="54" fill="#ffb300"/>
+  <circle cx="672" cy="832" r="54" fill="#e74c3c"/>
+  <circle cx="336" cy="814" r="16" fill="#ffffff" fill-opacity="0.45"/>
+  <circle cx="496" cy="814" r="16" fill="#ffffff" fill-opacity="0.45"/>
+  <circle cx="656" cy="814" r="16" fill="#ffffff" fill-opacity="0.45"/>
+</svg>

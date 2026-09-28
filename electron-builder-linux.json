@@ -1,0 +1,98 @@
+{
+  "appId": "com.appendautomation.hmiweb",
+  "productName": "Append HMI Web",
+  "copyright": "Copyright 2026 Append Automation",
+  "asar": true,
+  "files": [
+    "package.json",
+    "LICENSE",
+    "NOTICE",
+    "src/main/**",
+    "src/web/**",
+    "src/launcher/**",
+    "studio/package.json",
+    "studio/src/main/args.js",
+    "studio/src/main/brand.js",
+    "studio/src/main/runtime/**",
+    "studio/src/main/comms/**",
+    "studio/src/main/alarms/**",
+    "studio/src/main/retentive/**",
+    "studio/src/main/security/**",
+    "studio/drawio/src/main/webapp/index.html",
+    "studio/drawio/src/main/webapp/js/bootstrap.js",
+    "studio/drawio/src/main/webapp/js/main.js",
+    "studio/drawio/src/main/webapp/js/PreConfig.js",
+    "studio/drawio/src/main/webapp/js/PostConfig.js",
+    "studio/drawio/src/main/webapp/js/app.min.js",
+    "studio/drawio/src/main/webapp/js/extensions.min.js",
+    "studio/drawio/src/main/webapp/js/stencils.min.js",
+    "studio/drawio/src/main/webapp/js/shapes-*.min.js",
+    "studio/drawio/src/main/webapp/js/plantuml/**",
+    "studio/drawio/src/main/webapp/js/hmi/**",
+    "studio/drawio/src/main/webapp/js/diagramly/ElectronApp.js",
+    "studio/drawio/src/main/webapp/js/diagramly/DesktopLibrary.js",
+    "studio/drawio/src/main/webapp/styles/**",
+    "studio/drawio/src/main/webapp/css/**",
+    "studio/drawio/src/main/webapp/mxgraph/css/**",
+    "studio/drawio/src/main/webapp/mxgraph/images/**",
+    "studio/drawio/src/main/webapp/images/**",
+    "studio/drawio/src/main/webapp/img/**",
+    "studio/drawio/src/main/webapp/math4/**",
+    "studio/drawio/src/main/webapp/resources/dia.txt",
+    "!**/*.map"
+  ],
+  "electronLanguages": [
+    "en-US"
+  ],
+  "directories": {
+    "output": "./dist/"
+  },
+  "npmRebuild": false,
+  "publish": null,
+  "artifactName": "Append-HMI-Web-${version}-${arch}.${ext}",
+  "extraResources": [
+    {
+      "from": "studio/comms/publish/linux-${arch}",
+      "to": "comms"
+    },
+    {
+      "from": "build/icon.png",
+      "to": "icon.png"
+    }
+  ],
+  "afterPack": "build/fuses.mjs",
+  "toolsets": {
+    "appimage": "1.0.3"
+  },
+  "appImage": {
+    "compression": "gzip"
+  },
+  "linux": {
+    "executableName": "append-hmi-web",
+    "category": "Network",
+    "synopsis": "Serve Append HMI Studio applications to web browsers",
+    "description": "Append HMI Web serves operator screens made with Append HMI Studio to any web browser on the network, with live data from Allen-Bradley and Modbus PLCs.",
+    "maintainer": "Append Automation <dhuntlinux@gmail.com>",
+    "vendor": "Append Automation",
+    "icon": "./build",
+    "desktop": {
+      "entry": {
+        "StartupWMClass": "append-hmi-web"
+      }
+    },
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "deb",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  }
+}

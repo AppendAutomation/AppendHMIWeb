@@ -1,0 +1,78 @@
+{
+  "appId": "com.appendautomation.hmiweb",
+  "productName": "Append HMI Web",
+  "copyright": "Copyright 2026 Append Automation",
+  "asar": true,
+  "files": [
+    "package.json",
+    "LICENSE",
+    "NOTICE",
+    "src/main/**",
+    "src/web/**",
+    "src/launcher/**",
+    "studio/package.json",
+    "studio/src/main/args.js",
+    "studio/src/main/brand.js",
+    "studio/src/main/runtime/**",
+    "studio/src/main/comms/**",
+    "studio/src/main/alarms/**",
+    "studio/src/main/retentive/**",
+    "studio/src/main/security/**",
+    "studio/drawio/src/main/webapp/index.html",
+    "studio/drawio/src/main/webapp/js/bootstrap.js",
+    "studio/drawio/src/main/webapp/js/main.js",
+    "studio/drawio/src/main/webapp/js/PreConfig.js",
+    "studio/drawio/src/main/webapp/js/PostConfig.js",
+    "studio/drawio/src/main/webapp/js/app.min.js",
+    "studio/drawio/src/main/webapp/js/extensions.min.js",
+    "studio/drawio/src/main/webapp/js/stencils.min.js",
+    "studio/drawio/src/main/webapp/js/shapes-*.min.js",
+    "studio/drawio/src/main/webapp/js/plantuml/**",
+    "studio/drawio/src/main/webapp/js/hmi/**",
+    "studio/drawio/src/main/webapp/js/diagramly/ElectronApp.js",
+    "studio/drawio/src/main/webapp/js/diagramly/DesktopLibrary.js",
+    "studio/drawio/src/main/webapp/styles/**",
+    "studio/drawio/src/main/webapp/css/**",
+    "studio/drawio/src/main/webapp/mxgraph/css/**",
+    "studio/drawio/src/main/webapp/mxgraph/images/**",
+    "studio/drawio/src/main/webapp/images/**",
+    "studio/drawio/src/main/webapp/img/**",
+    "studio/drawio/src/main/webapp/math4/**",
+    "studio/drawio/src/main/webapp/resources/dia.txt",
+    "!**/*.map"
+  ],
+  "electronLanguages": [
+    "en-US"
+  ],
+  "directories": {
+    "output": "./dist/"
+  },
+  "npmRebuild": false,
+  "publish": null,
+  "extraResources": [
+    {
+      "from": "studio/comms/publish/win-${arch}",
+      "to": "comms"
+    },
+    {
+      "from": "build/icon.png",
+      "to": "icon.png"
+    },
+    {
+      "from": "build/icon.ico",
+      "to": "icon.ico"
+    }
+  ],
+  "win": {
+    "icon": "build/icon.ico",
+    "target": [
+      {
+        "target": "dir",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "afterPack": "build/fuses.mjs"
+}
