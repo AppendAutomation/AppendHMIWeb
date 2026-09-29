@@ -3,7 +3,7 @@ Append HMI Web
 
 **Append HMI Web** serves HMI applications (`.ahmi` projects) made with [Append HMI Studio](https://github.com/AppendAutomation/AppendHMIStudio) to web browsers. Start it on one PC; operators open the link on any computer, tablet or phone on the network, with live PLC data and no software to install on their side.
 
-![The Append HMI Web launcher with a running server](doc/images/launcher.png)
+![The Append HMI Web launcher serving the LiquidWeighHMI example](doc/images/launcher.png)
 
 - **From the command line:** `append-hmi-web project.ahmi` starts the project's web server.
   - `--port`, `--view` and `--local-only` set it up.
@@ -21,7 +21,7 @@ Append HMI Web
   - **Full screen.**
   - Each browser remembers its choice; the launcher sets the starting one.
 
-  ![A browser showing an HMI screen with the view menu open](doc/images/browser.png)
+  ![LiquidWeighHMI in a browser, with the view menu open](doc/images/browser.png)
 
 - **Everything the Studio's Run does:**
   - live PLC data through the bundled `hmi-comms` server (EtherNet/IP ControlLogix/CompactLogix, SLC 5/05 and MicroLogix, Modbus TCP, simulator);
