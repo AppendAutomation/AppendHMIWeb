@@ -6,7 +6,7 @@ import os from 'os';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import WebSocket from 'ws';
-import {HmiWebServer, webappPath, pageQuery, WS_PATH} from '../main/server.js';
+import {HmiWebServer, webappPath, pageQuery, WS_PATH, CONTROL_PATH, controlServer} from '../main/server.js';
 import {AlarmEvents} from '../main/rpc.js';
 import {parseProjectConfig} from '../main/project.js';
 
@@ -14,6 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const webRoot = path.join(root, 'studio', 'drawio', 'src', 'main', 'webapp');
 const quiet = {info() {}, warn() {}, error() {}};
 let dir, server, port;
+const TOKEN = 'a'.repeat(48);
+const controlled = [];
 
 function get(p, headers = {}, method = 'GET')
 {
@@ -40,7 +42,8 @@ before(async () =>
 	server = new HmiWebServer({config: parseProjectConfig(xml, file), port: 0, host: '127.0.0.1', view: 'fill',
 		webRoot: webRoot, bridgeFile: path.join(root, 'src', 'web', 'bridge.js'),
 		shared: {base: dir, supervisor: () => { throw new Error('no comms here'); }, log: quiet, alarms: new AlarmEvents(),
-			pruned: new Set()}, log: quiet});
+			pruned: new Set()}, log: quiet,
+		control: {token: TOKEN, handle: (action) => { controlled.push(action); }}});
 	await server.start();
 	port = server.http.address().port;
 });
@@ -160,4 +163,64 @@ test('a port in use is reported plainly', async () =>
 {
 	const other = new HmiWebServer(Object.assign({}, server.opts, {port: port}));
 	await assert.rejects(other.start(), /Port \d+ is already in use/);
+});
+
+function post(p, body, headers = {})
+{
+	return new Promise((resolve, reject) =>
+	{
+		const data = typeof body === 'string' ? body : JSON.stringify(body);
+		const req = http.request({host: '127.0.0.1', port: port, path: p, method: 'POST',
+			headers: Object.assign({'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data)}, headers)}, (res) =>
+		{
+			let out = '';
+			res.on('data', (c) => { out += c; });
+			res.on('end', () => resolve({status: res.statusCode, body: out}));
+		});
+		req.on('error', reject);
+		req.end(data);
+	});
+}
+
+test('the control endpoint needs the server\'s token', async () =>
+{
+	assert.equal((await post(CONTROL_PATH, {token: 'wrong', action: 'stop'})).status, 403);
+	assert.equal((await post(CONTROL_PATH, {action: 'stop'})).status, 403);
+	assert.equal((await post(CONTROL_PATH, 'not json')).status, 400);
+	assert.equal((await post(CONTROL_PATH, {token: TOKEN, action: 'format'})).status, 400);
+	assert.equal((await get(CONTROL_PATH)).status, 403, 'POST only');
+	assert.deepEqual(controlled, []);
+});
+
+test('status, stop and restart reach the owner', async () =>
+{
+	const st = await controlServer(port, TOKEN, 'status');
+	assert.equal(st.ok, true);
+	assert.equal(st.port, 0);
+	assert.match(st.project, /Pumps\.ahmi$/);
+	assert.equal(st.clients, 0);
+
+	assert.deepEqual(await controlServer(port, TOKEN, 'restart'), {ok: true});
+	assert.deepEqual(await controlServer(port, TOKEN, 'stop'), {ok: true});
+	await new Promise(r => setTimeout(r, 50));
+	assert.deepEqual(controlled, ['restart', 'stop'], 'answered first, then acted on');
+
+	await assert.rejects(controlServer(port, 'bad', 'status'), /forbidden/);
+	await assert.rejects(controlServer(1, TOKEN, 'status', 500));
+});
+
+test('a server without control refuses control requests', async () =>
+{
+	const other = new HmiWebServer(Object.assign({}, server.opts, {port: 0, control: null}));
+	await other.start();
+	const p = other.http.address().port;
+
+	try
+	{
+		await assert.rejects(controlServer(p, TOKEN, 'status'), /forbidden/);
+	}
+	finally
+	{
+		await other.stop();
+	}
 });

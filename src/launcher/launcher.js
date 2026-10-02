@@ -10,6 +10,8 @@
 
 	let state = null;
 	let current = null;
+	// Servers whose other addresses are shown (the list is redrawn often)
+	const expanded = new Set();
 
 	const pathText = (p) => '‎' + p;
 
@@ -45,27 +47,29 @@
 		return (state && state.servers || []).find(s => s.path === file) || null;
 	}
 
-	// Start, or Restart when the project runs with other settings
+	// Running when a server already serves the project with these settings;
+	// Restart when this window serves it with others (it makes way); otherwise
+	// Start, beside any server running in the background
 	function updateStart()
 	{
 		const btn = $('start');
 		const ok = current != null && current.error == null;
-		const run = ok ? runningFor(current.path) : null;
+		const runs = ok ? (state && state.servers || []).filter(s => s.path === current.path) : [];
 		const o = options();
 		btn.disabled = !ok;
 
-		if (run == null)
-		{
-			btn.textContent = 'Start web server';
-		}
-		else if (run.port === o.port && run.view === o.view && run.localOnly === o.localOnly)
+		if (runs.some(s => s.port === o.port && s.view === o.view && s.localOnly === o.localOnly))
 		{
 			btn.textContent = 'Running';
 			btn.disabled = true;
 		}
-		else
+		else if (runs.some(s => s.here))
 		{
 			btn.textContent = 'Restart with these settings';
+		}
+		else
+		{
+			btn.textContent = 'Start web server';
 		}
 
 		$('desktop').disabled = !ok;
@@ -155,25 +159,52 @@
 			div.dataset.port = s.port;
 
 			const head = el('div', 'server-head');
+			const browsers = s.clients == null ? 'not answering' :
+				(s.clients === 1 ? '1 browser connected' : s.clients + ' browsers connected');
 			head.append(el('span', 'server-name', s.name),
-				el('span', 'server-meta', 'Port ' + s.port + (s.localOnly ? ' · this computer only' : '') + ' · ' +
-					(s.clients === 1 ? '1 browser connected' : s.clients + ' browsers connected')));
+				el('span', 'server-meta', 'Port ' + s.port + (s.localOnly ? ' · this computer only' : '') + ' · ' + browsers));
 
-			const stop = el('button', 'danger', 'Stop');
-			stop.dataset.field = 'stop';
-			stop.addEventListener('click', async () =>
+			// Stop or restart this server, whichever process runs it
+			const act = (button, label, busy, done, fn) =>
 			{
-				try
+				button.textContent = label;
+				button.addEventListener('click', async () =>
 				{
-					await window.launcher.stop(s.port);
-					status('Stopped ' + s.name + '.');
-				}
-				catch (e)
-				{
-					fail(e);
-				}
-			});
-			head.append(stop);
+					div.querySelectorAll('button').forEach(b => { b.disabled = true; });
+					button.textContent = busy;
+					status(busy + ' ' + s.name + '…');
+
+					try
+					{
+						await fn(s.port);
+						status(done);
+					}
+					catch (e)
+					{
+						fail(e);
+					}
+
+					await refresh();
+				});
+			};
+
+			const restart = el('button');
+			restart.dataset.field = 'restart';
+			restart.title = 'Stop and start again, reading the project file afresh';
+			act(restart, 'Restart', 'Restarting', s.name + ' restarted.', (p) => window.launcher.restart(p));
+			const stop = el('button', 'danger');
+			stop.dataset.field = 'stop';
+			act(stop, 'Stop', 'Stopping', 'Stopped ' + s.name + '.', (p) => window.launcher.stop(p));
+			head.append(restart, stop);
+
+			const owner = el('span', 'server-owner ' + (s.here ? 'here' : 'background'),
+				s.here ? 'in this window' : 'in the background');
+			owner.title = s.here ? 'Stops when this window closes' :
+				'Started separately (--headless); keeps running when this window closes';
+			const where = el('span', 'server-path', pathText(s.path));
+			where.title = s.path;
+			const sub = el('div', 'server-sub');
+			sub.append(owner, where);
 
 			const main = s.links[0];
 			const row = el('div', 'link-row');
@@ -187,11 +218,15 @@
 			copy.classList.add('primary');
 			row.append(link, copy, open);
 
-			div.append(head, row);
+			div.append(head, sub, row);
 
 			if (s.links.length > 1)
 			{
-				const others = el('ul', 'other-links');
+				const more = el('details', 'other-links');
+				more.open = expanded.has(s.port);
+				more.addEventListener('toggle', () => { more.open ? expanded.add(s.port) : expanded.delete(s.port); });
+				more.appendChild(el('summary', null, 'Other addresses (' + (s.links.length - 1) + ')'));
+				const others = el('ul');
 
 				for (const l of s.links.slice(1))
 				{
@@ -200,7 +235,8 @@
 					others.appendChild(li);
 				}
 
-				div.appendChild(others);
+				more.appendChild(others);
+				div.appendChild(more);
 			}
 
 			box.appendChild(div);
@@ -352,6 +388,11 @@
 		{
 			await refresh();
 			$('version').textContent = 'Version ' + state.version;
+
+			if (state.error)
+			{
+				status(state.error, true);
+			}
 
 			if (state.platform !== 'win32')
 			{

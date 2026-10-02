@@ -20,7 +20,8 @@ Options:
                              window, fill (maximize) it, or original size.
                              Default fit; each browser can change it.
   --local-only               Only this computer can connect (127.0.0.1).
-  --headless                 No window: print the link and serve until stopped.
+  --headless                 No window: print the link and serve until stopped
+                             (the launcher's Running list can stop it).
   --create-shortcut <where>  Create a shortcut that starts the web server with
                              these options, then exit. <where> is desktop or menu.
   --disable-acceleration     Turn off GPU acceleration.

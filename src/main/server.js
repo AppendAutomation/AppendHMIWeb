@@ -2,6 +2,7 @@
 // it loads over HTTP, and each browser's runtime requests over a WebSocket
 // (/hmi-web/ws, see src/web/bridge.js and rpc.js).
 
+import crypto from 'crypto';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
@@ -13,6 +14,8 @@ import {BrowserSession} from './rpc.js';
 export const WS_PATH = '/hmi-web/ws';
 export const BRIDGE_PATH = '/hmi-web/bridge.js';
 export const PING_PATH = '/hmi-web/ping';
+export const CONTROL_PATH = '/hmi-web/control';
+export const CONTROL_ACTIONS = ['status', 'stop', 'restart'];
 
 const TYPES = {
 	'.html': 'text/html; charset=utf-8',
@@ -81,7 +84,9 @@ export function webappPath(urlPath)
 }
 
 // opts: config (the project, project.js), port, host, view, webRoot (the web
-// app folder), bridgeFile, shared (rpc.js's shared state, less config), log
+// app folder), bridgeFile, shared (rpc.js's shared state, less config), log,
+// control ({token, handle(action)}: the owner's stop and restart, for the
+// control endpoint; see registry.js)
 export class HmiWebServer
 {
 	constructor(opts)
@@ -179,6 +184,13 @@ export class HmiWebServer
 
 	request(req, res)
 	{
+		if (req.url === CONTROL_PATH)
+		{
+			this.controlRequest(req, res);
+
+			return;
+		}
+
 		if (req.method !== 'GET' && req.method !== 'HEAD')
 		{
 			res.writeHead(405, this.headers({Allow: 'GET, HEAD'}));
@@ -231,6 +243,82 @@ export class HmiWebServer
 		}
 
 		this.sendFile(req, res, path.join(this.opts.webRoot, rel), path.extname(rel).toLowerCase());
+	}
+
+	// POST {token, action}: status, stop or restart, for an Append HMI Web
+	// launcher on this computer. Only from this computer, only with the token
+	// in the server's registry entry (readable by its user alone).
+	controlRequest(req, res)
+	{
+		const reply = (code, body) =>
+		{
+			res.writeHead(code, this.headers({'Content-Type': 'application/json'}));
+			res.end(JSON.stringify(body));
+		};
+		const local = /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '');
+
+		if (req.method !== 'POST' || !local || this.opts.control == null)
+		{
+			reply(403, {error: 'forbidden'});
+
+			return;
+		}
+
+		let body = '';
+		req.setEncoding('utf8');
+		req.on('data', (chunk) =>
+		{
+			body += chunk;
+
+			if (body.length > 4096)
+			{
+				req.destroy();
+			}
+		});
+		req.on('end', () =>
+		{
+			let msg;
+
+			try
+			{
+				msg = JSON.parse(body);
+			}
+			catch (e)
+			{
+				reply(400, {error: 'bad request'});
+
+				return;
+			}
+
+			const given = Buffer.from(String(msg && msg.token || ''));
+			const want = Buffer.from(this.opts.control.token);
+
+			if (given.length !== want.length || !crypto.timingSafeEqual(given, want))
+			{
+				reply(403, {error: 'forbidden'});
+
+				return;
+			}
+
+			if (!CONTROL_ACTIONS.includes(msg.action))
+			{
+				reply(400, {error: 'unknown action'});
+
+				return;
+			}
+
+			if (msg.action === 'status')
+			{
+				reply(200, {ok: true, port: this.opts.port, project: this.opts.config.projectPath, clients: this.clients});
+
+				return;
+			}
+
+			// Answered first: stopping closes this connection's server
+			reply(200, {ok: true});
+			setImmediate(() => Promise.resolve(this.opts.control.handle(msg.action)).catch((e) =>
+				this.opts.log.error('Web server control: ' + e.message)));
+		});
 	}
 
 	// index.html with the bridge loaded first, so the page finds its
@@ -397,4 +485,37 @@ export class HmiWebServer
 			this.changed();
 		});
 	}
+}
+
+// Calls another process's server through its control endpoint; resolves with
+// its answer, or rejects when it does not answer
+export function controlServer(port, token, action, timeoutMs = 3000)
+{
+	return new Promise((resolve, reject) =>
+	{
+		const body = JSON.stringify({token: token, action: action});
+		const req = http.request({host: '127.0.0.1', port: port, path: CONTROL_PATH, method: 'POST', timeout: timeoutMs,
+			headers: {'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body)}}, (res) =>
+		{
+			let data = '';
+			res.setEncoding('utf8');
+			res.on('data', (c) => { data += c; });
+			res.on('end', () =>
+			{
+				try
+				{
+					const msg = JSON.parse(data);
+					res.statusCode === 200 ? resolve(msg) : reject(new Error(msg.error || 'HTTP ' + res.statusCode));
+				}
+				catch (e)
+				{
+					reject(new Error('no answer from port ' + port));
+				}
+			});
+		});
+
+		req.on('timeout', () => req.destroy(new Error('no answer from port ' + port)));
+		req.on('error', reject);
+		req.end(body);
+	});
 }

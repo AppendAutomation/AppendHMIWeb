@@ -32,6 +32,17 @@ Append HMI Web
 
 Why port 8480? 8080 and 8088 are often taken on plant PCs (other web servers, Ignition), and a port above 1024 needs no administrator rights.
 
+Managing running servers
+------------------------
+
+- **One list for the whole PC:** the launcher's **Running** list shows every Append HMI Web server on this computer: its own, and servers started separately (with `--headless`, or by another launcher shortcut), marked **in the background**.
+- **For each server:** the application, its file, its port and how many browsers are connected.
+- **Restart:** stops the server and starts it again with the same settings, reading the `.ahmi` file afresh. Restart after saving changes in Studio; connected browsers reload by themselves.
+- **Stop:** stops the server. A background process exits once its last server stops.
+- **Closing the launcher:** stops its own servers, after asking. Background servers keep running.
+
+How it works: each server is recorded in `servers/` in the settings folder, with a random token readable only by your user account. A launcher sends Stop and Restart to the server's control address (`/hmi-web/control`), which answers only requests from this computer that carry that token.
+
 How browsers share the application
 ----------------------------------
 
@@ -66,7 +77,8 @@ append-hmi-web [options] [project.ahmi]
   --port <n>                 Web server port (default 8480).
   --view <fit|fill|original> How browsers show the screen at first. Default fit.
   --local-only               Only this computer can connect (127.0.0.1).
-  --headless                 No window: print the link and serve until stopped.
+  --headless                 No window: print the link and serve until stopped
+                             (from the launcher's Running list, Ctrl+C or the OS).
   --create-shortcut <where>  Create a shortcut that starts the server with these
                              options, then exit (<where>: desktop or menu).
   --disable-acceleration     Turn off GPU acceleration.

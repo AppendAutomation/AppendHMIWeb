@@ -12,7 +12,7 @@
     "start": "electron .",
     "build-comms": "node studio/comms/scripts/publish.mjs",
     "fetch-nsis": "node scripts/fetch-nsis.mjs",
-    "test": "node --test src/test/args.test.js src/test/network.test.js src/test/project.test.js src/test/settings.test.js src/test/shortcuts.test.js src/test/server.test.js src/test/rpc.test.js src/test/nsis.test.js src/test/packaging.test.js",
+    "test": "node --test src/test/args.test.js src/test/network.test.js src/test/project.test.js src/test/settings.test.js src/test/shortcuts.test.js src/test/server.test.js src/test/rpc.test.js src/test/registry.test.js src/test/nsis.test.js src/test/packaging.test.js",
     "dist-win": "node scripts/dist-win.mjs",
     "dist-linux": "node scripts/dist-linux.mjs"
   },

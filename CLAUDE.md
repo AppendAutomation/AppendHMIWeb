@@ -29,6 +29,7 @@ src/main/server.js          HmiWebServer: HTTP (allowlisted web app files, gzip,
 src/main/rpc.js             BrowserSession: one per WebSocket, answers the runtime's requests; AlarmEvents
 src/main/webfiles.js        The web app files served and packaged (WEBAPP_FILES)
 src/main/network.js         The links to show (LAN addresses first)
+src/main/registry.js        ServerRegistry: userData/servers/<port>.json for every server of every process
 src/web/bridge.js           Browser side: window.electron over the WebSocket, window.process, reconnect
 src/launcher/               Launcher page (plain HTML/CSS/JS, strict CSP)
 scripts/nsis.mjs            Installer script (firewall rule for private/domain networks)
@@ -56,6 +57,12 @@ studio/                     Submodule: AppendHMIStudio (drawio fork, comms serve
   - CSP and `frame-ancestors 'none'` on every response.
 - **The launcher:** it may act only on paths from the OS dialog, the command line or the recent list. Copy and Open accept only links of running servers.
 - **Shutting down:** closing the launcher with servers running asks first. Quitting stops the servers before the process exits, so browsers see the connection close.
+- **Running list:** the launcher lists its own servers and, polled every 3 s, those of other processes (`--headless`) from the registry.
+  - Each entry holds the owner's pid, the project, its settings and a random token, and has mode 0600.
+  - Stale entries (dead pid) are deleted when the registry is read.
+- **Stop and Restart:** they go through each server's `POST /hmi-web/control` (`status`, `stop`, `restart`), which accepts loopback only, with the token, compared in constant time.
+  - Restart re-reads the project with the same port, view and access.
+  - A headless process exits when its last server stops.
 - **Windows Firewall:** the per-machine installer adds a rule named "Append HMI Web" for the exe, on private and domain profiles only, and removes it on uninstall.
 
 ## Code Style

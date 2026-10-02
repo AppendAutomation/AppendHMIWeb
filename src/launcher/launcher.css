@@ -96,7 +96,13 @@ main
 	flex-direction: column;
 	gap: 14px;
 	min-height: 0;
-	padding: 0 22px;
+	padding: 0 22px 2px;
+	overflow-y: auto;
+}
+
+main > section
+{
+	flex: none;
 }
 
 section
@@ -242,7 +248,6 @@ button.primary:hover:not(:disabled)
 
 .recent-section
 {
-	flex: 1;
 	display: flex;
 	flex-direction: column;
 	min-height: 120px;
@@ -449,11 +454,22 @@ button.danger
 
 .other-links
 {
-	margin: 8px 0 0;
-	padding: 0;
-	list-style: none;
+	margin: 6px 0 0;
 	color: var(--muted);
 	font-size: 12px;
+}
+
+.other-links summary
+{
+	cursor: pointer;
+	width: max-content;
+}
+
+.other-links ul
+{
+	margin: 4px 0 0;
+	padding: 0;
+	list-style: none;
 }
 
 .other-links li
@@ -474,4 +490,48 @@ button.danger
 {
 	padding: 1px 8px;
 	font-size: 12px;
+}
+
+.server-head button + button
+{
+	margin-left: 0;
+}
+
+.server-sub
+{
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 4px;
+	min-width: 0;
+}
+
+.server-owner
+{
+	flex: none;
+	padding: 1px 7px;
+	border-radius: 9px;
+	font-size: 11px;
+	background: var(--selected);
+	color: var(--accent);
+}
+
+.server-owner.background
+{
+	background: var(--bg);
+	color: var(--muted);
+	border: 1px solid var(--border);
+}
+
+.server-path
+{
+	flex: 1;
+	min-width: 0;
+	color: var(--muted);
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	direction: rtl;
+	text-align: left;
 }

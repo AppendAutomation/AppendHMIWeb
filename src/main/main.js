@@ -22,7 +22,8 @@ import {loadProjectConfig, describe, isProjectFile} from './project.js';
 import {Settings} from './settings.js';
 import {Shortcuts, shortcutDirs, launchCommand} from './shortcuts.js';
 import {serverLinks} from './network.js';
-import {HmiWebServer} from './server.js';
+import {HmiWebServer, controlServer} from './server.js';
+import {ServerRegistry, newToken} from './registry.js';
 import {AlarmEvents} from './rpc.js';
 import {PRODUCT_NAME, HOMEPAGE_URL, DEFAULT_PORT} from './brand.js';
 import {CommsSupervisor, resolveExecutable as resolveCommsExecutable} from
@@ -221,13 +222,33 @@ function samePath(a, b)
 
 // ------------------------------------------------------------------ servers
 
-// Running servers by port
+// Running servers by port: this process's own, and (polled while the launcher
+// is open) those of other Append HMI Web processes, through the registry
 const servers = new Map();
+let external = [];
+let registry = null;
+
+function getRegistry()
+{
+	if (registry == null)
+	{
+		registry = new ServerRegistry(path.join(app.getPath('userData'), 'servers'));
+	}
+
+	return registry;
+}
 
 async function startServer(file, given)
 {
 	const config = await loadProjectConfig(file);
 	const opts = serverOptions(config.projectPath, given);
+	const other = getRegistry().others().find(e => e.port === opts.port);
+
+	if (other != null)
+	{
+		throw new Error('Port ' + opts.port + ' is already serving ' + other.name + ' (in another Append HMI Web). ' +
+			'Stop it in the Running list, or choose another port.');
+	}
 
 	for (const s of servers.values())
 	{
@@ -249,19 +270,25 @@ async function startServer(file, given)
 			'. Choose another port.');
 	}
 
+	const token = newToken();
+	const port = opts.port;
 	const server = new HmiWebServer({
 		config: config,
-		port: opts.port,
+		port: port,
 		host: opts.localOnly ? '127.0.0.1' : undefined,
 		view: opts.view,
 		webRoot: codeDir,
 		bridgeFile: bridgeFile,
 		shared: {base: app.getPath('userData'), supervisor: getCommsSupervisor, log: log,
 			alarms: new AlarmEvents(), pruned: new Set()},
-		log: log
+		log: log,
+		// Another launcher's Stop and Restart (registry.js)
+		control: {token: token, handle: (action) => action === 'restart' ? restartServer(port) : stopServer(port)}
 	});
 
 	await server.start();
+	getRegistry().register({port: port, projectPath: config.projectPath, name: config.productName, view: opts.view,
+		localOnly: opts.localOnly, token: token});
 
 	const entry = {port: opts.port, view: opts.view, localOnly: opts.localOnly, config: config, server: server,
 		links: serverLinks({port: opts.port, localOnly: opts.localOnly})};
@@ -276,7 +303,8 @@ async function startServer(file, given)
 	return entry;
 }
 
-async function stopServer(port)
+// restarting: the server comes straight back, so a headless process stays
+async function stopServer(port, restarting = false)
 {
 	const entry = servers.get(port);
 
@@ -286,24 +314,127 @@ async function stopServer(port)
 	}
 
 	servers.delete(port);
+	getRegistry().unregister(port);
 	await entry.server.stop();
 	log.info('Stopped serving ' + entry.config.productName + ' on port ' + port);
 	notifyLauncher();
 
+	// A headless process exists only to serve
+	if (args.headless && servers.size === 0 && !restarting)
+	{
+		log.info('No server left: exiting');
+		app.quit();
+	}
+
 	return true;
+}
+
+// The same project and settings again, reading the project file afresh
+async function restartServer(port)
+{
+	const entry = servers.get(port);
+
+	if (entry == null)
+	{
+		throw new Error('No server on port ' + port);
+	}
+
+	const given = {port: entry.port, view: entry.view, localOnly: entry.localOnly};
+	log.info('Restarting ' + entry.config.productName + ' on port ' + port);
+	await stopServer(port, true);
+
+	try
+	{
+		return await startServer(entry.config.projectPath, given);
+	}
+	catch (e)
+	{
+		if (args.headless && servers.size === 0)
+		{
+			app.quit();
+		}
+
+		throw e;
+	}
 }
 
 function publicServers()
 {
-	return [...servers.values()].map(s => ({
+	const own = [...servers.values()].map(s => ({
 		port: s.port,
 		view: s.view,
 		localOnly: s.localOnly,
 		path: s.config.projectPath,
 		name: s.config.productName,
 		clients: s.server.clients,
-		links: s.links
+		links: s.links,
+		here: true,
+		responding: true
 	}));
+
+	return own.concat(external.filter(e => !servers.has(e.port))).sort((a, b) => a.port - b.port);
+}
+
+// The other processes' servers, with their state from their control endpoints
+async function refreshExternal()
+{
+	const found = await Promise.all(getRegistry().others().map(async (e) =>
+	{
+		let status = null;
+
+		try
+		{
+			status = await controlServer(e.port, e.token, 'status', 1500);
+		}
+		catch (err)
+		{
+			// Starting, stopping or stuck: listed, without a count
+		}
+
+		return {
+			port: e.port,
+			view: e.view,
+			localOnly: e.localOnly === true,
+			path: e.projectPath,
+			name: e.name,
+			clients: status != null ? status.clients : null,
+			links: serverLinks({port: e.port, localOnly: e.localOnly === true}),
+			here: false,
+			responding: status != null,
+			pid: e.pid
+		};
+	}));
+
+	if (JSON.stringify(found) !== JSON.stringify(external))
+	{
+		external = found;
+		notifyLauncher();
+	}
+
+	return external;
+}
+
+function externalEntry(port)
+{
+	return getRegistry().others().find(e => e.port === port) || null;
+}
+
+// Waits (up to timeoutMs) for check() to be true
+async function until(check, timeoutMs = 8000)
+{
+	const end = Date.now() + timeoutMs;
+
+	while (Date.now() < end)
+	{
+		if (await check())
+		{
+			return true;
+		}
+
+		await new Promise(r => setTimeout(r, 250));
+	}
+
+	return false;
 }
 
 // ------------------------------------------------------------------ launcher
@@ -311,11 +442,19 @@ function publicServers()
 let launcher = null;
 let quitting = false;
 
+// An error from before the launcher page could show it (a server started from
+// the command line that failed), handed over with its first state request
+let pendingError = null;
+
 function notifyLauncher(channel = 'launcher:servers', data = publicServers())
 {
-	if (launcher != null && !launcher.isDestroyed())
+	if (launcher != null && !launcher.isDestroyed() && !launcher.webContents.isLoading())
 	{
 		launcher.webContents.send(channel, data);
+	}
+	else if (channel === 'launcher:error')
+	{
+		pendingError = data;
 	}
 }
 
@@ -352,6 +491,11 @@ function showLauncher()
 	launcher.loadFile(path.join(launcherDir, 'index.html'));
 	launcher.once('ready-to-show', () => launcher.show());
 
+	// Servers of other processes (headless ones) come and go on their own
+	refreshExternal();
+	const poll = setInterval(() => refreshExternal().catch(() => {}), 3000);
+	launcher.on('closed', () => clearInterval(poll));
+
 	// Closing the window stops the servers, after asking
 	launcher.on('close', (e) =>
 	{
@@ -368,7 +512,8 @@ function showLauncher()
 			cancelId: 1,
 			title: PRODUCT_NAME,
 			message: 'Stop the web server?',
-			detail: 'Browsers showing ' + names + ' will lose their connection.'
+			detail: 'Browsers showing ' + names + ' will lose their connection.' + (external.length > 0 ?
+				' Servers running in the background keep running.' : '')
 		});
 
 		if (choice !== 0)
@@ -444,7 +589,14 @@ async function projectInfo(file)
 	}
 }
 
-launcherRequest('launcher:state', async () => ({
+launcherRequest('launcher:state', async () =>
+{
+	const error = pendingError;
+	pendingError = null;
+	await refreshExternal().catch(() => {});
+
+	return {
+	error: error,
 	product: PRODUCT_NAME,
 	version: app.getVersion(),
 	platform: process.platform,
@@ -452,7 +604,8 @@ launcherRequest('launcher:state', async () => ({
 	defaultPort: DEFAULT_PORT,
 	servers: publicServers(),
 	recent: getSettings().recent.map(p => ({path: p, name: path.basename(p), exists: fs.existsSync(p)}))
-}));
+	};
+});
 
 launcherRequest('launcher:browse', async () =>
 {
@@ -481,7 +634,86 @@ launcherRequest('launcher:start', async (file, options) =>
 	return publicServers().find(s => s.port === entry.port);
 });
 
-launcherRequest('launcher:stop', async (port) => stopServer(Number(port)));
+launcherRequest('launcher:stop', async (port) =>
+{
+	port = Number(port);
+
+	if (servers.has(port))
+	{
+		return stopServer(port);
+	}
+
+	const e = externalEntry(port);
+
+	if (e == null)
+	{
+		throw new Error('Nothing is serving port ' + port + ' any more.');
+	}
+
+	log.info('Stopping ' + e.name + ' on port ' + port + ' (process ' + e.pid + ')');
+	await controlServer(port, e.token, 'stop');
+	const gone = await until(() => externalEntry(port) == null);
+	await refreshExternal();
+
+	if (!gone)
+	{
+		throw new Error(e.name + ' did not stop.');
+	}
+
+	return true;
+});
+
+launcherRequest('launcher:restart', async (port) =>
+{
+	port = Number(port);
+
+	if (servers.has(port))
+	{
+		await restartServer(port);
+
+		return true;
+	}
+
+	const e = externalEntry(port);
+
+	if (e == null)
+	{
+		throw new Error('Nothing is serving port ' + port + ' any more.');
+	}
+
+	log.info('Restarting ' + e.name + ' on port ' + port + ' (process ' + e.pid + ')');
+	await controlServer(port, e.token, 'restart');
+
+	// Back when it answers with a new token
+	const back = await until(async () =>
+	{
+		const now = externalEntry(port);
+
+		if (now == null || now.token === e.token)
+		{
+			return false;
+		}
+
+		try
+		{
+			await controlServer(port, now.token, 'status', 1000);
+
+			return true;
+		}
+		catch (err)
+		{
+			return false;
+		}
+	});
+	await refreshExternal();
+
+	if (!back)
+	{
+		throw new Error(e.name + ' did not come back. Check its log.');
+	}
+
+	return true;
+});
 
 launcherRequest('launcher:shortcut', async (file, place, options) =>
 {
@@ -502,7 +734,7 @@ launcherRequest('launcher:shortcut', async (file, place, options) =>
 // Only links of running servers are copied or opened
 function servedLink(link)
 {
-	return [...servers.values()].some(s => s.links.some(l => l.url === link));
+	return publicServers().some(s => s.links.some(l => l.url === link));
 }
 
 launcherRequest('launcher:copy', async (link) =>

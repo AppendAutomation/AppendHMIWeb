@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('launcher', {
 	info: (file) => ipcRenderer.invoke('launcher:info', file),
 	start: (file, options) => ipcRenderer.invoke('launcher:start', file, options),
 	stop: (port) => ipcRenderer.invoke('launcher:stop', port),
+	restart: (port) => ipcRenderer.invoke('launcher:restart', port),
 	shortcut: (file, place, options) => ipcRenderer.invoke('launcher:shortcut', file, place, options),
 	copy: (link) => ipcRenderer.invoke('launcher:copy', link),
 	open: (link) => ipcRenderer.invoke('launcher:open', link),
