@@ -42,8 +42,8 @@ studio/                     Submodule: AppendHMIStudio (drawio fork, comms serve
   - `/` redirects there; `index.html` is served with `/hmi-web/bridge.js` before `bootstrap.js`.
 - **The bridge:** sets `window.electron` (with `hmiWeb: true`) and `window.process.versions.electron`.
   - The editor then runs in its desktop mode. This relies on the drawio fork's `bootstrap.js` accepting `window.electron.hmiWeb`, and on `EditorUi.isElectronApp`.
-- **Server answers:** `rpc.js` answers the same actions Studio's main process answers for a published package: `hmiRuntime.*`, `hmiComms.*`, `hmiAlarms.*`, `hmiRetentive.*` and `hmiUsers.*`. `hmiRuntime.exit` answers false.
-- **Imported from `studio/src/main`:** `runtime/RuntimeMode.js`, `comms/*`, `alarms/AlarmLog.js`, `retentive/RetentiveStore.js`, `security/UserStore.js`.
+- **Server answers:** `rpc.js` answers the same actions Studio's main process answers for a published package: `hmiRuntime.*`, `hmiComms.*`, `hmiAlarms.*`, `hmiRetentive.*`, `hmiUsers.*` and `hmiRecipes.load/save`. `hmiRuntime.exit` answers false; `hmiRecipes.exportCsv/importCsv` answer null, so the browser downloads or picks the CSV file.
+- **Imported from `studio/src/main`:** `runtime/RuntimeMode.js`, `comms/*`, `alarms/AlarmLog.js`, `retentive/RetentiveStore.js`, `security/UserStore.js`, `recipes/RecipeStore.js`.
 - **Views:** Fit, Maximize (`fill`: CSS stretch, with `mxUtils.convertPoint` corrected) and Original, plus the in-page menu. They live in Studio (`HmiWindowManager.setView`, `HmiRuntimeApp.showViewMenu`).
 - **Changing the runtime:** make the change in AppendHMIStudio first, then move the submodule.
 
@@ -51,7 +51,7 @@ studio/                     Submodule: AppendHMIStudio (drawio fork, comms serve
 
 - **Browsers are independent:** comms session, login and acknowledgements are per browser.
   - The alarm history is shared and written once per real change (`AlarmEvents` keeps each tag's alarm state).
-  - Retentive values and runtime users are shared.
+  - Retentive values, runtime users and saved recipes are shared. Each browser's recipe manager merges on save and refreshes every 5 s.
 - **What is served:** only `WEBAPP_FILES` and the bridge. Paths are normalised and traversal refused.
   - The WebSocket requires an `Origin` matching `Host`.
   - CSP and `frame-ancestors 'none'` on every response.

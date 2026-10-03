@@ -27,7 +27,8 @@ Append HMI Web
   - live PLC data through the bundled `hmi-comms` server (EtherNet/IP ControlLogix/CompactLogix, SLC 5/05 and MicroLogix, Modbus TCP, simulator);
   - alarms with CSV history;
   - retentive tags;
-  - users and access levels.
+  - users and access levels;
+  - recipes (RecipeExport downloads the CSV file; RecipeImport opens the browser's file picker).
 - **Several projects at once**, each on its own port.
 
 Why port 8480? 8080 and 8088 are often taken on plant PCs (other web servers, Ignition), and a port above 1024 needs no administrator rights.
@@ -52,7 +53,8 @@ Every browser runs the application for itself, like separate operator panels on 
 - **Shared, kept on the server:**
   - **alarm history:** each real change is written once, however many browsers see it or when they open;
   - **retentive values**;
-  - **user changes** made at run time.
+  - **user changes** made at run time;
+  - **saved recipes:** a recipe saved in one browser appears in the others within a few seconds.
 - **Updates:** saving a new version of the `.ahmi` file and refreshing the browser loads it.
 - **Server restarts:** if the server stops, browsers show "Connection lost" and reload by themselves when it's back.
 
