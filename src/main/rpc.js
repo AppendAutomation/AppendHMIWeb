@@ -1,19 +1,22 @@
 // What a browser's runtime asks of the server: the requests Append HMI
 // Studio's main process answers for a published package (hmiRuntime.*,
-// hmiComms.*, hmiAlarms.*, hmiRetentive.*, hmiUsers.*), answered here once
-// per browser connection with Studio's own modules.
+// hmiComms.*, hmiAlarms.*, hmiRetentive.*, hmiUsers.*, hmiRecipes.*),
+// answered here once per browser connection with Studio's own modules.
 //
 // Every connected browser runs the application for itself, like separate
 // operator panels: its own PLC session, login and alarm acknowledgements.
 // What they share is kept on the server: runtime user changes, retentive
-// values and one alarm history, where an event reported by several browsers
-// is written once (AlarmEvents).
+// values, saved recipes and one alarm history, where an event reported by
+// several browsers is written once (AlarmEvents). Recipe CSV files are
+// downloaded and picked in the browser, so hmiRecipes.exportCsv/importCsv
+// have no answer.
 
 import {publicRuntimeInfo, readRuntimeProject} from '../../studio/src/main/runtime/RuntimeMode.js';
 import {CommsSession, validateCommsArgs} from '../../studio/src/main/comms/CommsSession.js';
 import * as alarmLog from '../../studio/src/main/alarms/AlarmLog.js';
 import * as retentiveStore from '../../studio/src/main/retentive/RetentiveStore.js';
 import * as userStore from '../../studio/src/main/security/UserStore.js';
+import * as recipeStore from '../../studio/src/main/recipes/RecipeStore.js';
 
 // Alarm events of one history, written once however many browsers report
 // them. Every browser runs the application for itself, so each reports the
@@ -146,6 +149,10 @@ export class BrowserSession
 				return userStore.load(base, req.store);
 			case 'hmiUsers.save':
 				return userStore.save(base, req.store, req.users);
+			case 'hmiRecipes.load':
+				return recipeStore.load(base, req.store);
+			case 'hmiRecipes.save':
+				return recipeStore.save(base, req.store, req.books);
 			case 'getDocumentsFolder':
 			case 'isFullscreen':
 			case 'isPluginsEnabled':

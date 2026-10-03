@@ -18,6 +18,7 @@
     "studio/src/main/alarms/**",
     "studio/src/main/retentive/**",
     "studio/src/main/security/**",
+    "studio/src/main/recipes/**",
     "studio/drawio/src/main/webapp/index.html",
     "studio/drawio/src/main/webapp/js/bootstrap.js",
     "studio/drawio/src/main/webapp/js/main.js",

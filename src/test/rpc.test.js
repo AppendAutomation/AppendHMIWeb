@@ -57,6 +57,14 @@ test('a browser session keeps runtime users and retentive values on the server',
 		await s.handle({action: 'hmiUsers.save', store: 'Plant', users: users});
 		assert.equal((await s.handle({action: 'hmiUsers.load', store: 'Plant'}))[0].name, 'op');
 
+		// Recipes are shared by every browser; CSV files stay in the browser
+		assert.equal(await s.handle({action: 'hmiRecipes.load', store: 'Plant'}), null);
+		await s.handle({action: 'hmiRecipes.save', store: 'Plant', books: {Mix: {'Batch A': {Setpoint: 42, Name: 'A'}}}});
+		assert.deepEqual(await new BrowserSession(shared, () => {}).handle({action: 'hmiRecipes.load', store: 'Plant'}),
+			{Mix: {'Batch A': {Setpoint: 42, Name: 'A'}}});
+		assert.equal(await s.handle({action: 'hmiRecipes.exportCsv', defaultName: 'Batch A', text: 'x'}), null);
+		assert.equal(await s.handle({action: 'hmiRecipes.importCsv'}), null);
+
 		assert.equal(await s.handle({action: 'hmiAlarms.append', store: 'Plant', events: [ev('ALM', 'L', 'high')]}), 1);
 		assert.equal(await s.handle({action: 'hmiAlarms.append', store: 'Plant', events: [ev('ALM', 'L', 'high')]}), 0);
 		assert.equal((await s.handle({action: 'hmiAlarms.recent', store: 'Plant', limit: 10})).length, 1);
