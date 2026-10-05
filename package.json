@@ -1,7 +1,7 @@
 {
   "name": "append-hmi-web",
   "productName": "Append HMI Web",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Append HMI Web: serves Append HMI Studio applications (.ahmi) to web browsers",
   "type": "module",
   "main": "src/main/main.js",
