@@ -52,6 +52,7 @@ studio/                     Submodule: AppendHMIStudio (drawio fork, comms serve
 - **Browsers are independent:** comms session, login and acknowledgements are per browser.
   - The alarm history is shared and written once per real change (`AlarmEvents` keeps each tag's alarm state).
   - Retentive values, runtime users and saved recipes are shared. Each browser's recipe manager merges on save and refreshes every 5 s.
+  - Application scripts and memory tags are per browser too: each browser runs On start, While running and On shutdown (on `pagehide`, as far as the browser allows; a killed browser runs nothing).
 - **What is served:** only `WEBAPP_FILES` and the bridge. Paths are normalised and traversal refused.
   - The WebSocket requires an `Origin` matching `Host`.
   - CSP and `frame-ancestors 'none'` on every response.
