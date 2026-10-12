@@ -25,6 +25,7 @@ import {serverLinks} from './network.js';
 import {HmiWebServer, controlServer} from './server.js';
 import {ServerRegistry, newToken} from './registry.js';
 import {AlarmEvents} from './rpc.js';
+import {TrendRecorders} from '../../studio/src/main/trends/TrendLog.js';
 import {PRODUCT_NAME, HOMEPAGE_URL, DEFAULT_PORT} from './brand.js';
 import {CommsSupervisor, resolveExecutable as resolveCommsExecutable} from
 	'../../studio/src/main/comms/CommsSupervisor.js';
@@ -280,7 +281,7 @@ async function startServer(file, given)
 		webRoot: codeDir,
 		bridgeFile: bridgeFile,
 		shared: {base: app.getPath('userData'), supervisor: getCommsSupervisor, log: log,
-			alarms: new AlarmEvents(), pruned: new Set()},
+			alarms: new AlarmEvents(), pruned: new Set(), trends: new TrendRecorders(), prunedTrends: new Map()},
 		log: log,
 		// Another launcher's Stop and Restart (registry.js)
 		control: {token: token, handle: (action) => action === 'restart' ? restartServer(port) : stopServer(port)}

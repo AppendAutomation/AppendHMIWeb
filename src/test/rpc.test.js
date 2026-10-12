@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {AlarmEvents, BrowserSession} from '../main/rpc.js';
+import {TrendRecorders} from '../../studio/src/main/trends/TrendLog.js';
 
 const ev = (event, tag, condition) => ({time: Date.now(), tag, event, condition, value: 1, description: '', limit: null});
 
@@ -46,7 +47,8 @@ test('a browser session keeps runtime users and retentive values on the server',
 		const file = path.join(base, 'Plant.ahmi');
 		fs.writeFileSync(file, '<mxfile/>');
 		const shared = {config: {projectPath: file, productName: 'Plant', version: '', windowMode: 'kiosk', exit: {mode: 'shortcut'}},
-			base: base, supervisor: () => null, log: {info() {}, warn() {}, error() {}}, alarms: new AlarmEvents(), pruned: new Set()};
+			base: base, supervisor: () => null, log: {info() {}, warn() {}, error() {}}, alarms: new AlarmEvents(), pruned: new Set(),
+			trends: new TrendRecorders(), prunedTrends: new Map()};
 		const s = new BrowserSession(shared, () => {});
 
 		assert.deepEqual(await s.handle({action: 'hmiRetentive.load', store: 'Plant'}), {});
@@ -68,6 +70,16 @@ test('a browser session keeps runtime users and retentive values on the server',
 		assert.equal(await s.handle({action: 'hmiAlarms.append', store: 'Plant', events: [ev('ALM', 'L', 'high')]}), 1);
 		assert.equal(await s.handle({action: 'hmiAlarms.append', store: 'Plant', events: [ev('ALM', 'L', 'high')]}), 0);
 		assert.equal((await s.handle({action: 'hmiAlarms.recent', store: 'Plant', limit: 10})).length, 1);
+
+		// One trend history: one browser records it until it closes
+		const s2 = new BrowserSession(shared, () => {});
+		const t = Date.now();
+		assert.equal(await s.handle({action: 'hmiTrends.append', store: 'Plant', samples: [[t, 'Level', 5]]}), 1);
+		assert.equal(await s2.handle({action: 'hmiTrends.append', store: 'Plant', samples: [[t + 1, 'Level', 6]]}), 0);
+		assert.deepEqual(await s2.handle({action: 'hmiTrends.query', store: 'Plant', tags: ['Level'], from: t - 1000, to: t + 1000}),
+			{Level: [[t, 5]]});
+		s.close();
+		assert.equal(await s2.handle({action: 'hmiTrends.append', store: 'Plant', samples: [[t + 2, 'Level', 7]]}), 1);
 
 		await assert.rejects(s.handle({action: 7}), /bad request/);
 	}

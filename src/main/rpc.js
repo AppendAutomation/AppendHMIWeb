@@ -6,8 +6,9 @@
 // Every connected browser runs the application for itself, like separate
 // operator panels: its own PLC session, login and alarm acknowledgements.
 // What they share is kept on the server: runtime user changes, retentive
-// values, saved recipes and one alarm history, where an event reported by
-// several browsers is written once (AlarmEvents). Recipe CSV files are
+// values, saved recipes, one alarm history, where an event reported by
+// several browsers is written once (AlarmEvents), and one trend history,
+// recorded by one browser at a time (TrendRecorders). Recipe CSV files are
 // downloaded and picked in the browser, so hmiRecipes.exportCsv/importCsv
 // have no answer.
 
@@ -17,6 +18,7 @@ import * as alarmLog from '../../studio/src/main/alarms/AlarmLog.js';
 import * as retentiveStore from '../../studio/src/main/retentive/RetentiveStore.js';
 import * as userStore from '../../studio/src/main/security/UserStore.js';
 import * as recipeStore from '../../studio/src/main/recipes/RecipeStore.js';
+import * as trendLog from '../../studio/src/main/trends/TrendLog.js';
 
 // Alarm events of one history, written once however many browsers report
 // them. Every browser runs the application for itself, so each reports the
@@ -82,7 +84,8 @@ export class AlarmEvents
 }
 
 // shared: {config, base (userData), supervisor() (hmi-comms), log, alarms
-// (AlarmEvents), pruned (Set of alarm stores pruned this run)}. send(channel,
+// (AlarmEvents), pruned (Set of alarm stores pruned this run), trends
+// (TrendRecorders), prunedTrends (store -> day pruned)}. send(channel,
 // data) pushes an event to this browser.
 export class BrowserSession
 {
@@ -141,6 +144,30 @@ export class BrowserSession
 			}
 			case 'hmiAlarms.recent':
 				return alarmLog.recent(base, alarmLog.storeName(req.store), req.limit);
+			case 'hmiTrends.append':
+			{
+				const store = trendLog.storeName(req.store);
+				const shared = this.shared;
+
+				// Another browser records this history; its samples are the same
+				if (shared.trends != null && !shared.trends.accept(this, store))
+				{
+					return 0;
+				}
+
+				const count = await trendLog.append(base, store, req.samples);
+				const day = new Date().toDateString();
+
+				if (shared.prunedTrends == null || shared.prunedTrends.get(store) !== day)
+				{
+					shared.prunedTrends?.set(store, day);
+					await trendLog.prune(base, store, Date.now());
+				}
+
+				return count;
+			}
+			case 'hmiTrends.query':
+				return trendLog.query(base, trendLog.storeName(req.store), req.tags, req.from, req.to, req.maxPoints);
 			case 'hmiRetentive.load':
 				return retentiveStore.load(base, req.store);
 			case 'hmiRetentive.save':
@@ -204,6 +231,11 @@ export class BrowserSession
 
 	close()
 	{
+		if (this.shared.trends != null)
+		{
+			this.shared.trends.release(this);
+		}
+
 		if (this.comms != null)
 		{
 			this.comms.close();
