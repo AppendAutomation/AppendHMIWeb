@@ -116,7 +116,13 @@ Settings, logs and project data are kept in:
 - `%APPDATA%\Append HMI Web` on Windows;
 - `~/.config/Append HMI Web` on Linux.
 
-The log is `logs/main.log`.
+The log is `logs/main.log`. Inside that folder each application has its alarm history (`alarms/`), trend history
+(`trends/`), retentive values (`retentive/`), runtime users (`users/`), saved recipes (`recipes/`) and the
+credentials this computer holds for its data sources (`datasources/`). An application whose data source is a
+SQLite file keeps it in `databases/` there, or in the server user's Documents folder, whichever the data source
+names. The database work happens on the server, so a browser needs no access to the database and the credentials
+never leave the server. See
+[HMI_SQL.md](https://github.com/AppendAutomation/AppendHMIStudio/blob/main/doc/HMI_SQL.md).
 
 How it works
 ------------
@@ -125,7 +131,7 @@ Append HMI Web reuses Append HMI Studio's run-only renderer, comms server and da
 
 - **Serving:** the server sends the editor web app's runtime files (46 of its 156 MB, gzipped on the way).
 - **The bridge:** before the page's own scripts, it loads a small bridge (`src/web/bridge.js`) that stands in for Electron's preload. The runtime's requests go to the server over a WebSocket.
-- **The server's side:** it answers those requests as Studio's main process does for a published package, one session per browser.
+- **The server's side:** it answers those requests as Studio's main process does for a published package, one session per browser. That includes the database work of the `SQL*` script functions, through the `tedious` driver (SQL Server) and Node's own `node:sqlite`.
 
 Building
 --------
