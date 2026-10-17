@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import {AlarmEvents, BrowserSession} from '../main/rpc.js';
 import {TrendRecorders} from '../../studio/src/main/trends/TrendLog.js';
+import * as codes from '../../studio/src/main/sql/ResultCodes.js';
 
 const ev = (event, tag, condition) => ({time: Date.now(), tag, event, condition, value: 1, description: '', limit: null});
 
@@ -36,6 +37,70 @@ test('real changes are all written', () =>
 	assert.equal(a.fresh([ev('ALM', 'Level', 'high')]).length, 1, 'a new alarm after the return');
 	assert.equal(a.fresh([ev('ACK', 'Level', 'high')]).length, 1);
 	assert.equal(a.fresh([ev('ALM', 'Pump', 'on'), ev('ALM', 'Pump', 'on'), null]).length, 1, 'within one batch');
+});
+
+test('a browser has its own database connections, closed when it goes', async () =>
+{
+	const base = fs.mkdtempSync(path.join(os.tmpdir(), 'hmi-web-sql-'));
+
+	try
+	{
+		const shared = {config: {productName: 'Plant'}, base: base, documents: null,
+			supervisor: () => null, log: {info() {}, warn() {}, error() {}}};
+		const one = new BrowserSession(shared, () => {});
+		const two = new BrowserSession(shared, () => {});
+		const source = {name: 'Demo', provider: 'sqlite', file: 'rpc.db'};
+
+		const opened = await one.handle({action: 'hmiSql.connect', dataSource: source, store: 'Plant'});
+		assert.equal(opened.code, 0, JSON.stringify(opened));
+		assert.equal(opened.connectionId, 1);
+
+		const made = await one.handle({action: 'hmiSql.exec', connectionId: 1,
+			sql: 'CREATE TABLE Batches (Name text, Weight real)'});
+		assert.equal(made.code, 0, JSON.stringify(made));
+
+		await one.handle({action: 'hmiSql.exec', connectionId: 1,
+			sql: 'INSERT INTO Batches (Name, Weight) VALUES (?, ?)',
+			params: [{type: 'varchar', value: 'Blue'}, {type: 'double', value: 12.5}]});
+
+		const rows = await one.handle({action: 'hmiSql.exec', connectionId: 1,
+			sql: 'SELECT Name, Weight FROM Batches'});
+		assert.equal(rows.code, 0);
+		assert.deepEqual(rows.rows, [['Blue', 12.5]]);
+
+		// Each browser runs the application for itself: a connection one
+		// opened is not a number another can address
+		const notYours = await two.handle({action: 'hmiSql.connect', dataSource: source, store: 'Plant'});
+		assert.equal(notYours.connectionId, 1, 'numbering starts afresh per browser');
+
+		// A rolled-back transaction leaves nothing behind
+		assert.equal((await two.handle({action: 'hmiSql.begin', connectionId: 1})).code, 0);
+		await two.handle({action: 'hmiSql.exec', connectionId: 1,
+			sql: "INSERT INTO Batches (Name, Weight) VALUES ('Gone', 1)"});
+		assert.equal((await two.handle({action: 'hmiSql.rollback', connectionId: 1})).code, 0);
+		assert.equal((await two.handle({action: 'hmiSql.exec', connectionId: 1,
+			sql: 'SELECT COUNT(*) FROM Batches'})).rows[0][0], 1);
+
+		// Closing the browser closes its connections, and the numbers it was
+		// given answer no longer
+		two.close();
+		assert.equal((await two.handle({action: 'hmiSql.exec', connectionId: 1,
+			sql: 'SELECT 1'})).code, codes.INVALID_CONNECTION);
+
+		// The editor's own requests have no answer here
+		await assert.rejects(one.handle({action: 'hmiSql.probe', dataSource: source}),
+			/not available in a browser/);
+		await assert.rejects(one.handle({action: 'hmiSql.overrides', store: 'Plant'}),
+			/not available in a browser/);
+		await assert.rejects(one.handle({action: 'hmiSql.exec', connectionId: 0, sql: 'SELECT 1'}),
+			/bad arg: connectionId/);
+
+		one.close();
+	}
+	finally
+	{
+		fs.rmSync(base, {recursive: true, force: true});
+	}
 });
 
 test('a browser session keeps runtime users and retentive values on the server', async () =>

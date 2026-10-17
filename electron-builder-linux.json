@@ -20,6 +20,7 @@
     "studio/src/main/security/**",
     "studio/src/main/recipes/**",
     "studio/src/main/trends/**",
+    "studio/src/main/sql/**",
     "studio/drawio/src/main/webapp/index.html",
     "studio/drawio/src/main/webapp/js/bootstrap.js",
     "studio/drawio/src/main/webapp/js/main.js",
@@ -41,7 +42,17 @@
     "studio/drawio/src/main/webapp/img/**",
     "studio/drawio/src/main/webapp/math4/**",
     "studio/drawio/src/main/webapp/resources/dia.txt",
-    "!**/*.map"
+    "!**/*.map",
+    "!node_modules/@azure/{identity,keyvault-keys,msal-browser,msal-node,msal-common}{,/**}",
+    "!node_modules/@types{,/**}",
+    {
+      "from": "studio/build/sql-stubs/azure-identity",
+      "to": "node_modules/@azure/identity"
+    },
+    {
+      "from": "studio/build/sql-stubs/azure-keyvault-keys",
+      "to": "node_modules/@azure/keyvault-keys"
+    }
   ],
   "electronLanguages": [
     "en-US"

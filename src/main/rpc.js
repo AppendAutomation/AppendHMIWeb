@@ -1,7 +1,8 @@
 // What a browser's runtime asks of the server: the requests Append HMI
 // Studio's main process answers for a published package (hmiRuntime.*,
-// hmiComms.*, hmiAlarms.*, hmiRetentive.*, hmiUsers.*, hmiRecipes.*),
-// answered here once per browser connection with Studio's own modules.
+// hmiComms.*, hmiAlarms.*, hmiRetentive.*, hmiUsers.*, hmiRecipes.*,
+// hmiSql.*), answered here once per browser connection with Studio's own
+// modules.
 //
 // Every connected browser runs the application for itself, like separate
 // operator panels: its own PLC session, login and alarm acknowledgements.
@@ -10,7 +11,8 @@
 // several browsers is written once (AlarmEvents), and one trend history,
 // recorded by one browser at a time (TrendRecorders). Recipe CSV files are
 // downloaded and picked in the browser, so hmiRecipes.exportCsv/importCsv
-// have no answer.
+// have no answer. Database connections are a browser's own, like its PLC
+// session: a connection one browser opened is not another's to address.
 
 import {publicRuntimeInfo, readRuntimeProject} from '../../studio/src/main/runtime/RuntimeMode.js';
 import {CommsSession, validateCommsArgs} from '../../studio/src/main/comms/CommsSession.js';
@@ -19,6 +21,7 @@ import * as retentiveStore from '../../studio/src/main/retentive/RetentiveStore.
 import * as userStore from '../../studio/src/main/security/UserStore.js';
 import * as recipeStore from '../../studio/src/main/recipes/RecipeStore.js';
 import * as trendLog from '../../studio/src/main/trends/TrendLog.js';
+import {SqlSession, validateSqlArgs} from '../../studio/src/main/sql/SqlSession.js';
 
 // Alarm events of one history, written once however many browsers report
 // them. Every browser runs the application for itself, so each reports the
@@ -85,8 +88,9 @@ export class AlarmEvents
 
 // shared: {config, base (userData), supervisor() (hmi-comms), log, alarms
 // (AlarmEvents), pruned (Set of alarm stores pruned this run), trends
-// (TrendRecorders), prunedTrends (store -> day pruned)}. send(channel,
-// data) pushes an event to this browser.
+// (TrendRecorders), prunedTrends (store -> day pruned), documents (the
+// Documents folder, for a SQLite data source)}. send(channel, data) pushes
+// an event to this browser.
 export class BrowserSession
 {
 	constructor(shared, send)
@@ -94,6 +98,7 @@ export class BrowserSession
 		this.shared = shared;
 		this.send = send;
 		this.comms = null;
+		this.sql = null;
 	}
 
 	async handle(req)
@@ -109,6 +114,11 @@ export class BrowserSession
 		if (action.startsWith('hmiComms.'))
 		{
 			return this.handleComms(req);
+		}
+
+		if (action.startsWith('hmiSql.'))
+		{
+			return this.handleSql(req);
 		}
 
 		switch (action)
@@ -190,6 +200,42 @@ export class BrowserSession
 		}
 	}
 
+	// The SQL* script functions, through Studio's own session and driver
+	// (studio/src/main/sql). The connections are this browser's, closed when
+	// it goes, and a transaction still open is rolled back. A credential kept
+	// on the server is used by connect and never sent to a browser.
+	async handleSql(req)
+	{
+		validateSqlArgs(req.action, req);
+
+		if (this.sql == null)
+		{
+			this.sql = new SqlSession({userData: this.shared.base, documents: this.shared.documents || null});
+		}
+
+		const s = this.sql;
+
+		switch (req.action)
+		{
+			case 'hmiSql.connect':
+				return s.connect(req);
+			case 'hmiSql.exec':
+				return s.exec(req);
+			case 'hmiSql.close':
+				return s.close(req);
+			case 'hmiSql.begin':
+				return s.transaction('begin', req);
+			case 'hmiSql.commit':
+				return s.transaction('commit', req);
+			case 'hmiSql.rollback':
+				return s.transaction('rollback', req);
+			default:
+				// Testing a connection and the stored credentials belong to
+				// the Database dialog, which no browser has
+				throw new Error('not available in a browser');
+		}
+	}
+
 	async handleComms(req)
 	{
 		validateCommsArgs(req.action, req);
@@ -240,6 +286,13 @@ export class BrowserSession
 		{
 			this.comms.close();
 			this.comms = null;
+		}
+
+		if (this.sql != null)
+		{
+			const sql = this.sql;
+			this.sql = null;
+			sql.closeAll();
 		}
 	}
 }

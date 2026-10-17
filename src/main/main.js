@@ -239,6 +239,21 @@ function getRegistry()
 	return registry;
 }
 
+// Where a SQLite data source may keep its file, besides the application data
+// folder. A misconfigured Documents folder throws on Windows, and then the
+// application data folder is the only root a database file may use.
+function documentsFolder()
+{
+	try
+	{
+		return app.getPath('documents');
+	}
+	catch (e)
+	{
+		return null;
+	}
+}
+
 async function startServer(file, given)
 {
 	const config = await loadProjectConfig(file);
@@ -280,7 +295,7 @@ async function startServer(file, given)
 		view: opts.view,
 		webRoot: codeDir,
 		bridgeFile: bridgeFile,
-		shared: {base: app.getPath('userData'), supervisor: getCommsSupervisor, log: log,
+		shared: {base: app.getPath('userData'), documents: documentsFolder(), supervisor: getCommsSupervisor, log: log,
 			alarms: new AlarmEvents(), pruned: new Set(), trends: new TrendRecorders(), prunedTrends: new Map()},
 		log: log,
 		// Another launcher's Stop and Restart (registry.js)

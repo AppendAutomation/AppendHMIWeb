@@ -29,7 +29,9 @@ Append HMI Web
   - retentive tags;
   - users and access levels;
   - recipes (RecipeExport downloads the CSV file; RecipeImport opens the browser's file picker);
-  - trends, with 7 days of history.
+  - trends, with 7 days of history;
+  - databases: the `SQL*` script functions against Microsoft SQL Server and
+    SQLite, from the server rather than the browser.
 - **Several projects at once**, each on its own port.
 
 Why port 8480? 8080 and 8088 are often taken on plant PCs (other web servers, Ignition), and a port above 1024 needs no administrator rights.
@@ -50,7 +52,7 @@ How browsers share the application
 
 Every browser runs the application for itself, like separate operator panels on one machine:
 
-- **Per browser:** its own connection to the PLCs, its own login (users and access levels apply per browser) and its own alarm acknowledgements.
+- **Per browser:** its own connection to the PLCs, its own login (users and access levels apply per browser), its own alarm acknowledgements and its own database connections -- the number `SQLConnect` gives one browser means nothing in another, and closing the tab closes them.
 - **Shared, kept on the server:**
   - **alarm history:** each real change is written once, however many browsers see it or when they open;
   - **retentive values**;

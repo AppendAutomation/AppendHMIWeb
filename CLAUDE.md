@@ -42,14 +42,15 @@ studio/                     Submodule: AppendHMIStudio (drawio fork, comms serve
   - `/` redirects there; `index.html` is served with `/hmi-web/bridge.js` before `bootstrap.js`.
 - **The bridge:** sets `window.electron` (with `hmiWeb: true`) and `window.process.versions.electron`.
   - The editor then runs in its desktop mode. This relies on the drawio fork's `bootstrap.js` accepting `window.electron.hmiWeb`, and on `EditorUi.isElectronApp`.
-- **Server answers:** `rpc.js` answers the same actions Studio's main process answers for a published package: `hmiRuntime.*`, `hmiComms.*`, `hmiAlarms.*`, `hmiRetentive.*`, `hmiUsers.*`, `hmiRecipes.load/save` and `hmiTrends.append/query`. `hmiRuntime.exit` answers false; `hmiRecipes.exportCsv/importCsv` answer null, so the browser downloads or picks the CSV file. ScreenToPDF needs no server action: in a browser (`hmiWeb`) the page draws the screen and downloads the PDF itself.
-- **Imported from `studio/src/main`:** `runtime/RuntimeMode.js`, `comms/*`, `alarms/AlarmLog.js`, `retentive/RetentiveStore.js`, `security/UserStore.js`, `recipes/RecipeStore.js`, `trends/TrendLog.js`.
+- **Server answers:** `rpc.js` answers the same actions Studio's main process answers for a published package: `hmiRuntime.*`, `hmiComms.*`, `hmiAlarms.*`, `hmiRetentive.*`, `hmiUsers.*`, `hmiRecipes.load/save`, `hmiTrends.append/query` and `hmiSql.*` (the `SQL*` script functions: one `SqlSession` per browser connection, closed with it; the Database dialog's own requests are refused). `hmiRuntime.exit` answers false; `hmiRecipes.exportCsv/importCsv` answer null, so the browser downloads or picks the CSV file. ScreenToPDF needs no server action: in a browser (`hmiWeb`) the page draws the screen and downloads the PDF itself.
+- **Imported from `studio/src/main`:** `runtime/RuntimeMode.js`, `comms/*`, `alarms/AlarmLog.js`, `retentive/RetentiveStore.js`, `security/UserStore.js`, `recipes/RecipeStore.js`, `trends/TrendLog.js`, `sql/*`.
+- **The SQL Server driver is this package's own dependency:** `tedious` is in `package.json` here as well as in Studio's, because the `SQL*` functions run through `studio/src/main/sql` but npm resolves from this package's `node_modules` and `studio/node_modules` is not shipped. Its Azure AD half is left out of the package and Studio's stubs (`studio/build/sql-stubs`) are mapped over the top; `packaging.test.js` pins both.
 - **Views:** Fit, Maximize (`fill`: CSS stretch, with `mxUtils.convertPoint` corrected) and Original, plus the in-page menu. They live in Studio (`HmiWindowManager.setView`, `HmiRuntimeApp.showViewMenu`).
 - **Changing the runtime:** make the change in AppendHMIStudio first, then move the submodule.
 
 ## Behaviour to keep
 
-- **Browsers are independent:** comms session, login and acknowledgements are per browser.
+- **Browsers are independent:** comms session, login, acknowledgements and database connections are per browser (`SQLConnect` numbers from 1 for each; a browser's connections close with it, rolling back anything left open).
   - The alarm history is shared and written once per real change (`AlarmEvents` keeps each tag's alarm state).
   - Retentive values, runtime users and saved recipes are shared. Each browser's recipe manager merges on save and refreshes every 5 s.
   - One trend history per store: every browser samples its trends, but only one writes them at a time (`TrendRecorders` in `shared.trends`; another takes over after 15 s of quiet or when the session closes).

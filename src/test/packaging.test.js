@@ -24,6 +24,13 @@ function packaged(files, file)
 
 	for (const p of files)
 	{
+		if (typeof p !== 'string')
+		{
+			// A {from, to} entry maps a folder into the package from
+			// somewhere else; it matches nothing in this tree
+			continue;
+		}
+
 		if (p.startsWith('!'))
 		{
 			if (globMatch(p.slice(1), file)) inc = false;
@@ -61,7 +68,8 @@ test('the configs package exactly the web app files the server serves', () =>
 		assert.ok(configs.win.files.includes(WEBAPP_DIR + '/' + f), f);
 	}
 
-	assert.equal(configs.win.files.filter(f => f.startsWith(WEBAPP_DIR)).length, WEBAPP_FILES.length);
+	assert.equal(configs.win.files.filter(f => typeof f === 'string' && f.startsWith(WEBAPP_DIR)).length,
+		WEBAPP_FILES.length);
 });
 
 test('everything the runtime loads is served and packaged', () =>
@@ -76,7 +84,9 @@ test('everything the runtime loads is served and packaged', () =>
 	for (const f of ['LICENSE', 'NOTICE', 'src/main/main.js', 'src/main/server.js', 'src/web/bridge.js', 'src/launcher/index.html',
 		'studio/package.json', 'studio/src/main/runtime/RuntimeMode.js', 'studio/src/main/comms/CommsSession.js',
 		'studio/src/main/alarms/AlarmLog.js', 'studio/src/main/security/UserStore.js', 'studio/src/main/retentive/RetentiveStore.js',
-		'studio/src/main/recipes/RecipeStore.js', 'studio/src/main/trends/TrendLog.js'])
+		'studio/src/main/recipes/RecipeStore.js', 'studio/src/main/trends/TrendLog.js',
+		'studio/src/main/sql/SqlSession.js', 'studio/src/main/sql/SqlClient.js',
+		'studio/src/main/sql/DataSourceStore.js'])
 	{
 		assert.ok(packaged(configs.win.files, f), f);
 	}
@@ -104,9 +114,47 @@ test('the comms server and the icon ship as resources', () =>
 	assert.equal(res(configs.win)['icon.png'], 'build/icon.png');
 });
 
-test('run-time dependencies: electron-log and ws only', () =>
+test('run-time dependencies: electron-log, the SQL Server driver and ws', () =>
 {
-	assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['electron-log', 'ws']);
+	// tedious has to be named here, not only in Studio's package.json: the
+	// SQL* script functions run through studio/src/main/sql, but npm resolves
+	// from this package's own node_modules and studio/node_modules is not
+	// shipped. Leaving it out fails only in a packaged build.
+	assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['electron-log', 'tedious', 'ws']);
+});
+
+test('the SQL Server driver ships without its Azure AD half', () =>
+{
+	for (const [name, c] of Object.entries(configs))
+	{
+		assert.ok(c.files.includes(
+			'!node_modules/@azure/{identity,keyvault-keys,msal-browser,msal-node,msal-common}{,/**}'),
+			name + ' packs the Azure AD packages, which are about 43 MB of code that cannot run here');
+		assert.ok(c.files.includes('!node_modules/@types{,/**}'), name);
+
+		// The driver requires both eagerly, so they cannot simply be left
+		// out: Studio's stubs take their place
+		const mapped = Object.fromEntries(c.files.filter((f) => typeof f === 'object').map((f) => [f.to, f.from]));
+		assert.equal(mapped['node_modules/@azure/identity'], 'studio/build/sql-stubs/azure-identity', name);
+		assert.equal(mapped['node_modules/@azure/keyvault-keys'],
+			'studio/build/sql-stubs/azure-keyvault-keys', name);
+	}
+});
+
+test('every glob comes before the first file set, or the ones after it stop applying', () =>
+{
+	// electron-builder reads a pattern that follows a {from, to} entry as
+	// part of that entry's file set, so the exclusions after one are ignored
+	for (const [name, c] of Object.entries(configs))
+	{
+		const first = c.files.findIndex((f) => typeof f === 'object');
+
+		if (first >= 0)
+		{
+			assert.ok(c.files.slice(first).every((f) => typeof f === 'object'),
+				name + ' has a glob after a file set entry');
+		}
+	}
 });
 
 test('the test list names every test file', () =>
