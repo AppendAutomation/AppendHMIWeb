@@ -31,6 +31,8 @@ Append HMI Web
   - recipes (RecipeExport downloads the CSV file; RecipeImport opens the browser's file picker);
   - trends, with 7 days of history;
   - list boxes the operator picks from, filled by the `List*` script functions;
+  - popup windows the operator moves by dragging their title bar, with a mouse
+    or a finger, drawn in the height, font and colors the project sets;
   - databases: the `SQL*` script functions against Microsoft SQL Server and
     SQLite, from the server rather than the browser.
 - **Several projects at once**, each on its own port.
