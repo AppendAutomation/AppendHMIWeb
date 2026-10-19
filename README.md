@@ -36,6 +36,8 @@ Append HMI Web
     its scripts sets it);
   - popup windows the operator moves by dragging their title bar, with a mouse
     or a finger, drawn in the height, font and colors the project sets;
+  - the project's touch background color, which every object with a touch
+    animation is drawn in while it is held down -- on a tablet as on a panel;
   - databases: the `SQL*` script functions against Microsoft SQL Server and
     SQLite, from the server rather than the browser.
 - **Several projects at once**, each on its own port.
