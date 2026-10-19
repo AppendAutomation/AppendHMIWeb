@@ -31,6 +31,9 @@ Append HMI Web
   - recipes (RecipeExport downloads the CSV file; RecipeImport opens the browser's file picker);
   - trends, with 7 days of history;
   - list boxes the operator picks from, filled by the `List*` script functions;
+  - the date and time: the clock system tags, `Now(format)` and `_Now` in the
+    format `_TimeFormat` holds (each browser's own, from HH:mm:ss until one of
+    its scripts sets it);
   - popup windows the operator moves by dragging their title bar, with a mouse
     or a finger, drawn in the height, font and colors the project sets;
   - databases: the `SQL*` script functions against Microsoft SQL Server and
@@ -55,7 +58,7 @@ How browsers share the application
 
 Every browser runs the application for itself, like separate operator panels on one machine:
 
-- **Per browser:** its own connection to the PLCs, its own login (users and access levels apply per browser), its own alarm acknowledgements, its own list boxes (each browser's lists hold what its own scripts put in them) and its own database connections -- the number `SQLConnect` gives one browser means nothing in another, and closing the tab closes them.
+- **Per browser:** its own connection to the PLCs, its own login (users and access levels apply per browser), its own alarm acknowledgements, its own list boxes (each browser's lists hold what its own scripts put in them), its own `_TimeFormat` and its own database connections -- the number `SQLConnect` gives one browser means nothing in another, and closing the tab closes them.
 - **Shared, kept on the server:**
   - **alarm history:** each real change is written once, however many browsers see it or when they open;
   - **retentive values**;
