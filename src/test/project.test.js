@@ -40,6 +40,13 @@ test('a desktop exit password does not stop a project being served', () =>
 	assert.equal(c.productName, 'x');
 });
 
+test('the desktop\'s close exit is kept, not taken for an unknown value', () =>
+{
+	const c = parseProjectConfig(project('<settings width="1024" height="768">' +
+		'<runtime windowMode="window" exit="close"/></settings>'), '/p/x.ahmi');
+	assert.equal(c.exit.mode, 'close');
+});
+
 test('unknown values fall back to the defaults', () =>
 {
 	const c = parseProjectConfig(project('<settings width="9" height="abc"><runtime windowMode="huge" exit="nope"/>' +

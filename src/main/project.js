@@ -9,7 +9,7 @@ import path from 'path';
 
 export const EXTENSIONS = ['.ahmi', '.drawio-hmi'];
 export const WINDOW_MODES = ['kiosk', 'fullscreen', 'window'];
-export const EXIT_MODES = ['shortcut', 'password', 'never'];
+export const EXIT_MODES = ['shortcut', 'close', 'password', 'never'];
 
 const MAX_PROJECT_BYTES = 64 * 1024 * 1024;
 
